@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<meta name="description" content="Поиск информации по номеру телефона: оператор, регион, ссылки на открытые источники.">
+<title>Phone OSINT — информация по номеру</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:#0b0d10;color:#d6dae0;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    font-size:15px;line-height:1.5;
+    padding:16px 14px 40px;
+    max-width:720px;margin:0 auto;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{margin-bottom:20px}
+  h1{color:#4ade80;font-size:22px;font-weight:700;letter-spacing:-0.3px;margin-bottom:4px}
+  .sub{color:#5f6773;font-size:13px}
+
+  .box{background:#14171c;border:1px solid #22262e;border-radius:12px;padding:16px;margin-bottom:14px}
+
+  .input-wrap{position:relative}
+  input[type=tel]{
+    width:100%;background:#0b0d10;border:1px solid #22262e;border-radius:10px;
+    color:#d6dae0;font-size:18px;padding:14px 44px 14px 14px;
+    outline:none;font-family:inherit;
+    transition:border-color .15s;
+  }
+  input[type=tel]:focus{border-color:#4ade80}
+  input[type=tel]::placeholder{color:#3f4650}
+  .clear-btn{
+    position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:#5f6773;font-size:20px;
+    cursor:pointer;padding:4px 8px;line-height:1;
+  }
+  .clear-btn:hover{color:#f87171}
+
+  .btn{
+    width:100%;background:#4ade80;color:#0b0d10;border:none;border-radius:10px;
+    font-size:16px;font-weight:700;padding:14px;cursor:pointer;
+    margin-top:10px;font-family:inherit;
+    transition:background .15s,transform .05s;
+  }
+  .btn:hover{background:#3bc96a}
+  .btn:active{transform:scale(.985)}
+  .btn:disabled{opacity:.4;cursor:wait}
+
+  .quick{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .quick a{
+    flex:1;min-width:80px;
+    background:#0b0d10;border:1px solid #22262e;border-radius:8px;
+    color:#d6dae0;text-decoration:none;font-size:12px;
+    padding:8px 10px;text-align:center;
+    transition:border-color .15s;
+  }
+  .quick a:hover{border-color:#4ade80;color:#4ade80}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media (max-width:480px){.grid{grid-template-columns:1fr}}
+  .cell{background:#0b0d10;border:1px solid #22262e;border-radius:8px;padding:10px 12px}
+  .key{color:#5f6773;font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+  .val{margin-top:4px;font-size:15px;word-break:break-word}
+  .ok{color:#4ade80;font-weight:600}
+  .warn{color:#fbbf24;font-weight:600}
+  .err{color:#f87171;font-weight:600}
+  .dim{color:#8892a0}
+  .full{grid-column:1/-1}
+
+  .section-title{
+    color:#5f6773;font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+    font-weight:600;margin-bottom:10px;
+  }
+  .link-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+  .link-grid a{
+    background:#0b0d10;border:1px solid #22262e;border-radius:8px;
+    color:#d6dae0;text-decoration:none;font-size:13px;
+    padding:10px 12px;text-align:center;
+    transition:all .15s;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .link-grid a:hover{border-color:#4ade80;color:#4ade80;background:#0f1318}
+
+  .dork-list{display:flex;flex-direction:column;gap:6px}
+  .dork-item{
+    background:#0b0d10;border:1px solid #22262e;border-radius:8px;
+    padding:10px 12px;display:flex;align-items:center;gap:10px;
+  }
+  .dork-item code{
+    flex:1;font-family:'SF Mono',Consolas,monospace;font-size:12px;
+    color:#fbbf24;word-break:break-all;line-height:1.4;
+  }
+  .dork-item button{
+    background:#22262e;color:#d6dae0;border:none;border-radius:6px;
+    font-size:11px;padding:6px 10px;cursor:pointer;font-family:inherit;
+    flex-shrink:0;transition:all .15s;
+  }
+  .dork-item button:hover{background:#4ade80;color:#0b0d10}
+
+  .status{
+    color:#5f6773;font-size:12px;margin-top:12px;min-height:18px;
+    text-align:center;
+  }
+  .spinner{
+    display:inline-block;width:12px;height:12px;
+    border:2px solid #22262e;border-top-color:#4ade80;
+    border-radius:50%;animation:sp .6s linear infinite;
+    margin-right:6px;vertical-align:-2px;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:#4ade80;color:#0b0d10;padding:10px 20px;border-radius:8px;
+    font-size:13px;font-weight:600;opacity:0;
+    transition:all .25s;pointer-events:none;z-index:99;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+  footer{
+    color:#3f4650;font-size:11px;text-align:center;margin-top:24px;
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Phone OSINT</h1>
+  <div class="sub">информация по номеру телефона из открытых источников</div>
+</header>
+
+<div class="box">
+  <div class="input-wrap">
+    <input type="tel" id="inp" placeholder="+7 926 123 45 67" autocomplete="off" spellcheck="false" inputmode="tel">
+    <button class="clear-btn" id="clearBtn" onclick="clearInput()" style="display:none" aria-label="Очистить">×</button>
+  </div>
+  <button class="btn" id="btn" onclick="run()">ИСКАТЬ</button>
+  <div class="status" id="st"></div>
+</div>
+
+<div id="res" style="display:none">
+
+  <div class="box">
+    <div class="grid">
+      <div class="cell"><div class="key">Валидность</div><div class="val dim" id="v1">—</div></div>
+      <div class="cell"><div class="key">Тип</div><div class="val dim" id="v2">—</div></div>
+      <div class="cell"><div class="key">E.164</div><div class="val dim" id="v3">—</div></div>
+      <div class="cell"><div class="key">Формат</div><div class="val dim" id="v4">—</div></div>
+      <div class="cell"><div class="key">Страна</div><div class="val dim" id="v5">—</div></div>
+      <div class="cell"><div class="key">Код</div><div class="val dim" id="v6">—</div></div>
+      <div class="cell full"><div class="key">Оператор</div><div class="val dim" id="v7">—</div></div>
+      <div class="cell full"><div class="key">Регион</div><div class="val dim" id="v8">—</div></div>
+    </div>
+  </div>
+
+  <div class="box">
+    <div class="section-title">Проверить в сервисах</div>
+    <div class="link-grid" id="links"></div>
+  </div>
+
+  <div class="box">
+    <div class="section-title">Поисковые запросы</div>
+    <div class="dork-list" id="dorks"></div>
+  </div>
+
+</div>
+
+<footer>
+  Данные из открытых источников. Имя владельца не отображается —<br>
+  эта информация не публикуется операторами связи.
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+const RF = {
+  '903':'Билайн','905':'Билайн','906':'Билайн','909':'Билайн','960':'Билайн','961':'Билайн','962':'Билайн','963':'Билайн','964':'Билайн','965':'Билайн','966':'Билайн','967':'Билайн','968':'Билайн',
+  '910':'МТС','911':'МТС','912':'МТС','913':'МТС','914':'МТС','915':'МТС','916':'МТС','917':'МТС','918':'МТС','919':'МТС','980':'МТС','981':'МТС','982':'МТС','983':'МТС','984':'МТС','985':'МТС','986':'МТС','987':'МТС','988':'МТС','989':'МТС',
+  '920':'Мегафон','921':'Мегафон','922':'Мегафон','923':'Мегафон','924':'Мегафон','925':'Мегафон','926':'Мегафон','927':'Мегафон','928':'Мегафон','929':'Мегафон','930':'Мегафон','931':'Мегафон','932':'Мегафон','933':'Мегафон','934':'Мегафон','936':'Мегафон','937':'Мегафон','938':'Мегафон','939':'Мегафон',
+  '901':'Tele2','902':'Tele2','904':'Tele2','908':'Tele2','950':'Tele2','951':'Tele2','952':'Tele2','953':'Tele2','954':'Tele2','955':'Tele2','956':'Tele2','957':'Tele2','958':'Tele2','959':'Tele2','977':'Tele2','991':'Tele2','992':'Tele2','993':'Tele2','994':'Tele2','995':'Tele2','996':'Tele2','997':'Tele2','999':'Tele2',
+  '900':'Скайлинк','935':'Скайлинк',
+  '940':'Мотив','941':'Мотив','942':'Мотив','943':'Мотив','944':'Мотив','945':'Мотив','946':'Мотив','947':'Мотив','948':'Мотив','949':'Мотив'
+};
+
+const REGION = {
+  '495':'Москва','499':'Москва','498':'Москва и область',
+  '812':'Санкт-Петербург','813':'Ленинградская обл.',
+  '383':'Новосибирск','343':'Екатеринбург','861':'Краснодар',
+  '863':'Ростов-на-Дону','351':'Челябинск','846':'Самара',
+  '347':'Уфа','843':'Казань','831':'Нижний Новгород',
+  '844':'Волгоград','342':'Пермь','391':'Красноярск','382':'Томск'
+};
+
+const $ = id => document.getElementById(id);
+const inp = $('inp');
+const clearBtn = $('clearBtn');
+const btn = $('btn');
+
+function set(id, text, cls) {
+  const e = $(id);
+  e.textContent = text;
+  e.className = 'val ' + (cls || 'dim');
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+function clearInput() {
+  inp.value = '';
+  clearBtn.style.display = 'none';
+  $('res').style.display = 'none';
+  $('st').textContent = '';
+  inp.focus();
+}
+
+function formatOnInput(e) {
+  let d = e.target.value.replace(/[^\d+]/g, '');
+  if (d.startsWith('8') && d.length === 11) d = '7' + d.slice(1);
+  if (d.startsWith('+8') && d.length === 12) d = '+7' + d.slice(2);
+  e.target.value = d;
+  clearBtn.style.display = d ? 'block' : 'none';
+}
+
+function normalize(raw) {
+  let d = raw.replace(/[^\d]/g, '');
+  if (d.startsWith('8') && d.length === 11) d = '7' + d.slice(1);
+  if (!d.startsWith('7')) d = '7' + d;
+  return { e164: '+' + d, digits: d, local: d.slice(1) };
+}
+
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+    }
+    toast('Скопировано');
+  } catch (e) { toast('Не удалось скопировать'); }
+}
+
+function run() {
+  const raw = inp.value.trim();
+  if (!raw) { $('st').textContent = 'введи номер'; inp.focus(); return; }
+
+  const { e164, digits, local } = normalize(raw);
+  if (digits.length !== 11) {
+    $('st').innerHTML = '<span class="err">номер должен быть 11 цифр (+7 и 10 цифр)</span>';
+    return;
+  }
+
+  btn.disabled = true;
+  $('st').innerHTML = '<span class="spinner"></span>собираю...';
+  $('res').style.display = 'block';
+
+  set('v1', 'YES', 'ok');
+  set('v3', e164, 'ok');
+  set('v6', '+7');
+  set('v5', 'Россия');
+
+  const isMobile = /^9/.test(local);
+  set('v2', isMobile ? 'мобильный' : 'городской / другой', isMobile ? 'ok' : 'warn');
+
+  const f = '+7 (' + local.slice(0,3) + ') ' + local.slice(3,6) + '-' + local.slice(6,8) + '-' + local.slice(8,10);
+  set('v4', f);
+
+  const pref = local.slice(0,3);
+  if (isMobile && RF[pref]) set('v7', RF[pref], 'ok');
+  else if (isMobile) set('v7', 'неизвестный префикс 9' + pref.slice(1), 'warn');
+  else set('v7', 'городской номер', 'dim');
+
+  if (!isMobile && REGION[pref]) set('v8', REGION[pref], 'ok');
+  else set('v8', 'уточняется через Google', 'dim');
+
+  // quick actions
+  const quick = [
+    ['Позвонить', 'tel:' + e164],
+    ['WhatsApp', 'https://wa.me/' + digits],
+    ['Telegram', 'https://t.me/+' + digits],
+    ['SMS', 'sms:' + e164]
+  ];
+  const qHtml = '<div class="section-title">Быстрые действия</div><div class="quick">' +
+    quick.map(([n,u]) => '<a href="'+u+'">'+n+'</a>').join('') + '</div>';
+
+  // links
+  const links = [
+    ['Truecaller', 'https://www.truecaller.com/search/ru/' + digits],
+    ['GetContact', 'https://getcontact.com/search?q=' + digits],
+    ['Sync.me', 'https://sync.me/search/?number=' + digits],
+    ['NumBuster', 'https://numbuster.com/search/' + digits],
+    ['Viber', 'viber://contact?number=%2B' + digits],
+    ['Google', 'https://www.google.com/search?q=' + encodeURIComponent('"'+e164+'"')]
+  ];
+  $('links').innerHTML = links
+    .map(([n,u]) => '<a href="'+u+'" target="_blank" rel="noopener">'+n+'</a>')
+    .join('');
+
+  // prepend quick block
+  const linksBox = $('links').parentElement;
+  if (!linksBox.querySelector('.quick')) {
+    linksBox.insertAdjacentHTML('afterbegin', qHtml);
+  }
+
+  // dorks
+  const dorks = [
+    '"'+e164+'"',
+    '"+7 '+local+'"',
+    '"'+digits+'"',
+    '"'+digits+'" site:vk.com',
+    '"'+digits+'" site:ok.ru',
+    '"'+digits+'" site:avito.ru',
+    '"'+digits+'" site:facebook.com',
+    '"'+digits+'" "утечка" OR "слив" OR "база"',
+    '"'+digits+'" filetype:pdf',
+    '"'+digits+'" filetype:xlsx'
+  ];
+  $('dorks').innerHTML = dorks.map((q,i) =>
+    '<div class="dork-item">' +
+      '<code>'+q.replace(/</g,'&lt;')+'</code>' +
+      '<button onclick="copyText(\''+q.replace(/'/g,"\\'")+'\')">COPY</button>' +
+      '<button onclick="window.open(\'https://www.google.com/search?q='+encodeURIComponent(q)+'\',\'_blank\')">GO</button>' +
+    '</div>'
+  ).join('');
+
+  $('st').textContent = 'готово · ' + new Date().toLocaleTimeString();
+  btn.disabled = false;
+}
+
+inp.addEventListener('input', formatOnInput);
+inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+</script>
+</body>
+</html>
